@@ -12,6 +12,7 @@ for (const t of tasks) {
   console.log(`  Verdict:    ${label[t.verdict]}`);
   if (t.bottleneck) console.log(`  Bottleneck: ${t.bottleneck}`);
   if (t.estimate) console.log(`  Estimate:   ${t.estimate}`);
+  if (t.speed_estimate) console.log(`  Speed:      ${t.speed_estimate}`);
   if (t.software_status) console.log(`  Software:   ${t.software_status}`);
   t.reasons.forEach((r) => console.log(`  - ${r}`));
 }

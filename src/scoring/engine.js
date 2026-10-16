@@ -1,4 +1,5 @@
 const profiles = require('./profiles');
+const { enrichSpec } = require('./gpudb');
 
 const RATINGS = ['not_recommended', 'limited', 'good'];
 const RESERVE_GB = 1; // VRAM kept free for the OS/display
@@ -78,13 +79,14 @@ const evaluators = {
     };
   },
 
-  llm_inference(spec, p, gpu) {
+    llm_inference(spec, p, gpu) {
     if (!gpu) {
       const ramGb = Math.round(spec.ram?.total_gb ?? 0);
       return {
         verdict: ramGb >= 16 ? 'limited' : 'not_recommended',
         bottleneck: 'No discrete GPU (CPU-only will be slow)',
         estimate: null,
+        speed_estimate: null,
         reasons: [`CPU-only inference works for small models but is slow. ${ramGb} GB RAM.`],
       };
     }
@@ -92,10 +94,20 @@ const evaluators = {
     const max4 = usable / (0.5 * OVERHEAD);
     const max16 = usable / (2 * OVERHEAD);
     const verdict = rate(max4, { good: p.good_params_b, limited: p.limited_params_b });
+
+    let speed = null;
+    const refB = Math.min(8, Math.floor(max4));
+    if (gpu.mem_bandwidth_gbs && refB >= 1) {
+      const gbPerToken = refB * 0.6; // ~4.8 bits per weight for a typical 4-bit quant
+      const top = gpu.mem_bandwidth_gbs / gbPerToken;
+      speed = `~${Math.round(top * 0.5)}-${Math.round(top * 0.7)} tokens/s for ${refB}B-class 4-bit models (rough; real speed depends on software and power limits)`;
+    }
+
     return {
       verdict,
       bottleneck: verdict === 'good' ? null : 'GPU memory (VRAM)',
       estimate: `up to ~${r1(max4)}B parameters at 4-bit, or ~${r1(max16)}B at FP16 (estimate)`,
+      speed_estimate: speed,
       reasons: [`${gpu.vram_gb} GB VRAM minus ${RESERVE_GB} GB reserved leaves ${usable} GB for the model.`],
     };
   },
@@ -159,6 +171,9 @@ function evaluate(spec, profile) {
       if (out.verdict === 'good') out.bottleneck = 'Disk space';
       out.verdict = worst(out.verdict, 'limited');
       out.reasons.push(`Only ${free} GB free disk; this task wants ${profile.min_free_disk_gb} GB or more.`);
+      if (gpu && gpu.vram_source === 'database' && profile.kind !== 'cpu_ram') {
+      out.reasons.push('VRAM comes from the GPU database because it could not be read reliably from the system.');
+  }
     }
   }
 
@@ -185,11 +200,15 @@ function systemNotes(spec) {
   if (spec.ram?.modules === 1) {
     notes.push('One RAM module detected (likely single-channel). A second matching module usually improves CPU-side speed.');
   }
+  if (gpu && !gpu.db_match) {
+    notes.push('This GPU is not in the database yet, so speed estimates are unavailable.');
+  }
   return notes;
 }
 
 function evaluateAll(spec) {
-  return { tasks: profiles.map((p) => evaluate(spec, p)), notes: systemNotes(spec) };
+  const enriched = enrichSpec(spec);
+  return { tasks: profiles.map((p) => evaluate(enriched, p)), notes: systemNotes(enriched) };
 }
 
 module.exports = { evaluate, evaluateAll, pickGpu };
