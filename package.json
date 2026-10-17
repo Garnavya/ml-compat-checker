@@ -6,7 +6,8 @@
   "scripts": {
     "collect": "node src/cli/collect.js",
     "evaluate": "node src/cli/evaluate.js",
-    "test": "node --test"
+    "test": "node --test",
+    "summary": "node src/cli/summary.js"
   },
   "keywords": [],
   "author": "",

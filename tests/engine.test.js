@@ -116,3 +116,20 @@ test('every profile returns a verdict and a reasons array', () => {
     assert.ok(Array.isArray(r.reasons) && r.reasons.length > 0, `${p.id}: reasons`);
   }
 });
+
+test('PyTorch found but failing to import is needs_fix, not "not installed"', () => {
+  const s = base();
+  s.software = { python: '3.11.9', torch_installed: true, torch: null, torch_error: 'DLL load failed while importing _C' };
+  const r = evaluate(s, prof('dl_training'));
+  assert.equal(r.verdict, 'good');
+  assert.equal(r.software_status, 'needs_fix');
+  assert.ok(r.reasons.some((x) => /Visual C\+\+/.test(x)));
+});
+
+test('PyTorch not found points the user at --python', () => {
+  const s = base();
+  s.software = { python: '3.13.0', torch_installed: false, environments: [{ python: '3.13.0' }] };
+  const r = evaluate(s, prof('dl_training'));
+  assert.equal(r.software_status, 'needs_setup');
+  assert.ok(r.reasons.some((x) => x.includes('--python')));
+});

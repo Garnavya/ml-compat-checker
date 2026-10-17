@@ -21,3 +21,9 @@ if (notes.length) {
   console.log('\nNotes');
   notes.forEach((n) => console.log(`  - ${n}`));
 }
+
+const detection = spec.detection_notes || [];
+if (detection.length) {
+  console.log('\nDetection notes');
+  detection.forEach((n) => console.log(`  - ${n}`));
+}

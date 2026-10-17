@@ -30,7 +30,20 @@ function softwareCheck(spec, gpu, mode = 'pytorch') {
       : { status: 'unknown', note: 'The NVIDIA driver version could not be read.' };
   }
   if (!sw.python) return { status: 'unknown', note: 'Python or PyTorch could not be checked on this machine.' };
-  if (!sw.torch_installed) return { status: 'needs_setup', note: 'PyTorch is not installed. Install a CUDA build to use this GPU.' };
+  if (!sw.torch_installed) {
+    const n = Array.isArray(sw.environments) ? sw.environments.length : 0;
+    const where = n > 0 ? `in the ${n} Python environment${n === 1 ? '' : 's'} checked` : 'in the Python that was found';
+    return {
+      status: 'needs_setup',
+      note: `PyTorch was not found ${where}. If it is installed in a virtual environment, rerun the scan with --python <path to that environment's python>.`,
+    };
+  }
+  if (sw.torch_error) {
+    const hint = /dll/i.test(sw.torch_error)
+      ? ' On Windows this is often a missing Microsoft Visual C++ Redistributable or a broken install; reinstalling PyTorch usually fixes it.'
+      : '';
+    return { status: 'needs_fix', note: `PyTorch is installed but fails to import: ${sw.torch_error}${hint}` };
+  }
   if (!sw.torch_cuda) return { status: 'needs_fix', note: `PyTorch ${sw.torch} is a CPU-only build and will not use the GPU.` };
   if (sw.torch_cuda_available === false) {
     return { status: 'needs_fix', note: 'PyTorch has CUDA support but cannot see the GPU. Check the NVIDIA driver.' };
@@ -112,7 +125,7 @@ const evaluators = {
     };
   },
 
-    llm_qlora(spec, p, gpu) {
+      llm_qlora(spec, p, gpu) {
     if (!gpu) return noGpu();
     const usable = Math.max(0, gpu.vram_gb - RESERVE_GB - QLORA_ACTIVATION_GB);
     const max = usable / (0.5 * OVERHEAD);
@@ -127,10 +140,15 @@ const evaluators = {
     }
     const shortContextNote =
       max < p.good_params_b && max >= 5 ? '; 7B only with short context and small batches' : '';
+    const minVramFor3B = Math.ceil(RESERVE_GB + QLORA_ACTIVATION_GB + 3 * 0.5 * OVERHEAD);
+    const estimate =
+      max < p.limited_params_b
+        ? `Not enough VRAM for QLoRA on common model sizes; a 3B model needs roughly ${minVramFor3B} GB (estimate)`
+        : `QLoRA on models up to ~${r1(max)}B parameters${shortContextNote} (estimate)`;
     return {
       verdict,
       bottleneck: verdict === 'good' ? null : ramGb < 16 ? 'RAM' : 'GPU memory (VRAM)',
-      estimate: `QLoRA on models up to ~${r1(max)}B parameters${shortContextNote} (estimate)`,
+      estimate,
       reasons,
     };
   },

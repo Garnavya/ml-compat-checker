@@ -47,6 +47,7 @@ cd ml-compat-checker
 npm install
 
 npm run collect -- --out spec.json   # read this machine's hardware and software
+npm run collect -- --out spec.json --python "C:\path\to\python.exe"   # optional: check a specific environment
 npm run evaluate                     # score it against the ML task profiles
 npm test                             # run the test suite
 ```
@@ -146,13 +147,15 @@ Everything runs locally and nothing is sent anywhere. The spec deliberately leav
 
 On Linux it also reads `/proc/cpuinfo` and `/proc/version`.
 
+“Python environment paths are recorded with your home folder replaced by ~, so the spec never contains your username.”
+
 ---
 
 ## Limitations
 
 - **Only tested on Windows so far.** The Linux code paths are written but haven't been run on real Linux hardware yet.
 - **NVIDIA is the best-supported vendor.** AMD and Intel GPUs get a hardware-only verdict with `unknown` software status, and rely on the GPU database for VRAM.
-- **Python detection only sees the Python on your `PATH`.** Virtual environments and conda environments aren't inspected.
+- - **PyTorch detection checks several Python environments** (the Python on `PATH`, any active virtual or conda environment, installs listed by the Windows `py` launcher, and conda's environment list), but can't discover an arbitrary virtual environment. For those, pass `--python <path>` when collecting.
 - **Some fields may be unavailable.** RAM type and speed can need elevated rights, and laptop GPUs often report their power limit as N/A.
 - **Estimates are not benchmarks.** Thermals, drivers and software all change real-world speed.
 - **The GPU database is a starter set.** Entries marked `"verified": false` were not checked against manufacturer spec sheets yet.

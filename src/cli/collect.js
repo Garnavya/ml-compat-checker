@@ -1,10 +1,15 @@
 const fs = require('fs');
 const { collect } = require('../collector');
 
-const outIdx = process.argv.indexOf('--out');
-const outFile = outIdx !== -1 ? process.argv[outIdx + 1] : null;
+const args = process.argv.slice(2);
+// Every value that follows the given flag; the flag may repeat.
+const flagValues = (flag) =>
+  args.reduce((acc, a, i) => (a === flag && args[i + 1] ? [...acc, args[i + 1]] : acc), []);
 
-collect()
+const outFile = flagValues('--out')[0] || null;
+const pythonPaths = flagValues('--python');
+
+collect({ pythonPaths })
   .then((spec) => {
     const json = JSON.stringify(spec, null, 2);
     if (outFile) {
@@ -17,4 +22,4 @@ collect()
   .catch((err) => {
     console.error('Collection failed:', err);
     process.exit(1);
-  });
+  }); 

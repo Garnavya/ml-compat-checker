@@ -2,10 +2,17 @@ import importlib.util
 import json
 import sys
 
-result = {"python": sys.version.split()[0], "torch": None}
+result = {
+    "python": sys.version.split()[0],
+    "executable": sys.executable,
+    "torch_found": False,
+    "torch": None,
+}
 
-# find_spec is instant; it avoids importing torch (slow) when it isn't installed
+# find_spec is instant and doesn't import torch, so "installed" and "importable"
+# are reported separately.
 if importlib.util.find_spec("torch") is not None:
+    result["torch_found"] = True
     try:
         import torch
 

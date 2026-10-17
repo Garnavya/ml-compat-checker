@@ -31,7 +31,7 @@ function detectWsl() {
   }
 }
 
-async function collect() {
+async function collect(options = {}) {
   const notes = [];
 
   const [cpu, mem, memLayout, gfx, disks, fsSizes, sys, chassis, osInfo, features, soft] =
@@ -46,7 +46,7 @@ async function collect() {
       si.chassis(),
       si.osInfo(),
       getCpuFeatures(),
-      getSoftware(),
+      getSoftware(options),
     ]);
 
   const nvidia = await getNvidiaGpus();
